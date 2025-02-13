@@ -270,13 +270,14 @@ val publishSettings = Seq(
 val mimaSettings = Seq(
   mimaPreviousArtifacts := {
     val previousVersions = moduleName.value match {
-      case "chimney-macro-commons" | "chimney" | "chimney-cats" | "chimney-java-collections" | "chimney-protobufs" =>
-        Set("1.0.0-RC1", "1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.7.1")
+      // TODO: restore after 2.0.0 release
+      //case "chimney-macro-commons" | "chimney" | "chimney-cats" | "chimney-java-collections" | "chimney-protobufs" =>
+      //  Set("1.0.0-RC1", "1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.7.1")
       case _ => Set()
     }
     previousVersions.map(organization.value %% moduleName.value % _)
   },
-  mimaFailOnNoPrevious := true
+  mimaFailOnNoPrevious := false //true
 )
 
 val noPublishSettings =

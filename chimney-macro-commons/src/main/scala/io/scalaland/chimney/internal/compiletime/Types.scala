@@ -216,16 +216,6 @@ private[compiletime] trait Types { this: (Existentials & Results) =>
 
     // Implementations of extension methods
 
-    // FIXME (2.0.0 cleanup): this could be removed and the body copy-pasted into extension method
-    def extractStringSingleton[S <: String](S: Type[S]): String = StringLiteral
-      .unapply(S)
-      .getOrElse {
-        // $COVERAGE-OFF$should never happen unless someone mess around with type-level representation
-        assertionFailed(s"Invalid string literal type: ${prettyPrint(S)}")
-        // $COVERAGE-ON$
-      }
-      .value
-
     def isTuple[A](A: Type[A]): Boolean
 
     def isSubtypeOf[A, B](A: Type[A], B: Type[B]): Boolean
@@ -278,9 +268,16 @@ private[compiletime] trait Types { this: (Existentials & Results) =>
     def as_?>[L <: A]: ?>[L] = ExistentialType.LowerBounded[L, A](tpe)
     def as_?<[U >: A]: ?<[U] = ExistentialType.UpperBounded[U, A](tpe)
   }
-  implicit final protected class TypeStringOps[S <: String](private val tpe: Type[S]) {
+  implicit final protected class TypeStringOps[S <: String](private val S: Type[S]) {
 
-    def extractStringSingleton: String = Type.extractStringSingleton(tpe)
+    def extractStringSingleton: String = Type.StringLiteral
+      .unapply(S)
+      .getOrElse {
+        // $COVERAGE-OFF$should never happen unless someone mess around with type-level representation
+        assertionFailed(s"Invalid string literal type: ${Type.prettyPrint(S)}")
+        // $COVERAGE-ON$
+      }
+      .value
   }
 }
 private[compiletime] object TypeAlias {
