@@ -12,15 +12,6 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
 
     object platformSpecific {
 
-      // to align API between Scala versions
-      extension (sym: Symbol) {
-        @deprecated("Moved to Type.platformSpecific", "1.6.0")
-        def isAbstract: Boolean = Type.platformSpecific.isPublic(sym)
-
-        @deprecated("Moved to Type.platformSpecific", "1.6.0")
-        def isPublic: Boolean = Type.platformSpecific.isAbstract(sym)
-      }
-
       def isParameterless(method: Symbol): Boolean =
         method.paramSymss.filterNot(_.exists(_.isType)).flatten.isEmpty
 
