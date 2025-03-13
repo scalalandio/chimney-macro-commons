@@ -96,6 +96,8 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
 
           def isCaseFieldName(sym: Symbol) = caseFieldNames(sym.name.trim)
 
+          def isArgumentField(sym: Symbol) = isCaseFieldName(sym) // TODO: other cases
+
           val accessorsAndGetters = sym.methodMembers
             .filterNot(_.paramSymss.exists(_.exists(_.isType))) // remove methods with type parameters
             .filterNot(isGarbageSymbol)
@@ -111,9 +113,9 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
             name -> tpe.mapK[Product.Getter[A, *]] { implicit Tpe: Type[tpe.Underlying] => _ =>
               Product.Getter(
                 sourceType =
-                  if isCaseFieldName(getter) then Product.Getter.SourceType.ConstructorVal
+                  if isArgumentField(getter) then Product.Getter.SourceType.ConstructorArgVal
                   else if isJavaGetter(getter) && conformToIsGetters then Product.Getter.SourceType.JavaBeanGetter
-                  else if getter.isValDef then Product.Getter.SourceType.ConstructorVal
+                  else if getter.isValDef then Product.Getter.SourceType.ConstructorBodyVal
                   else Product.Getter.SourceType.AccessorMethod,
                 isInherited = !localDefinitions(getter),
                 get =

@@ -25,6 +25,9 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
       def isCaseClassField(field: MethodSymbol): Boolean =
         field.isCaseAccessor || field.toString.startsWith("variable ") // align with Scala 3 (var -> case accessor)
 
+      def isArgumentField(field: MethodSymbol): Boolean =
+        isCaseClassField(field) // TODO: other cases
+
       // assuming isAccessor was tested earlier
       def isJavaGetter(getter: MethodSymbol): Boolean =
         ProductTypes.BeanAware.isGetterName(getter.name.toString)
@@ -91,9 +94,9 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
                   val termName = getter.asMethod.name.toTermName
                   Product.Getter[A, Tpe](
                     sourceType =
-                      if (isCaseClassField(getter)) Product.Getter.SourceType.ConstructorVal
+                      if (isArgumentField(getter)) Product.Getter.SourceType.ConstructorArgVal
                       else if (isJavaGetter(getter) && conformToIsGetters) Product.Getter.SourceType.JavaBeanGetter
-                      else if (getter.isStable) Product.Getter.SourceType.ConstructorVal // Hmm...
+                      else if (getter.isStable) Product.Getter.SourceType.ConstructorBodyVal
                       else Product.Getter.SourceType.AccessorMethod,
                     isInherited = !localDefinitions(getter),
                     get =
