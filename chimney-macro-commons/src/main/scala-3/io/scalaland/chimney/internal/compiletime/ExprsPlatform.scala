@@ -22,22 +22,23 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
     val Null: Expr[Null] = '{ null }
     val Unit: Expr[Unit] = '{ () }
 
-    def Boolean(value: Boolean): Expr[Boolean] = scala.quoted.Expr(value)
-    def Int(value: Int): Expr[Int] = scala.quoted.Expr(value)
-    def Long(value: Long): Expr[Long] = scala.quoted.Expr(value)
-    def Float(value: Float): Expr[Float] = scala.quoted.Expr(value)
-    def Double(value: Double): Expr[Double] = scala.quoted.Expr(value)
-    def Char(value: Char): Expr[Char] = scala.quoted.Expr(value)
-    def String(value: String): Expr[String] = scala.quoted.Expr(value)
+    object Boolean extends BooleanModule { def apply(value: Boolean): Expr[Boolean] = scala.quoted.Expr(value) }
+    object Int extends IntModule { def apply(value: Int): Expr[Int] = scala.quoted.Expr(value) }
+    object Long extends LongModule { def apply(value: Long): Expr[Long] = scala.quoted.Expr(value) }
+    object Float extends FloatModule { def apply(value: Float): Expr[Float] = scala.quoted.Expr(value) }
+    object Double extends DoubleModule { def apply(value: Double): Expr[Double] = scala.quoted.Expr(value) }
+    object Char extends CharModule { def apply(value: Char): Expr[Char] = scala.quoted.Expr(value) }
+    object String extends StringModule { def apply(value: String): Expr[String] = scala.quoted.Expr(value) }
 
-    def Tuple2[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)] = '{ (${ a }, ${ b }) }
+    object Tuple2 extends Tuple2Module {
+      def apply[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)] = '{ (${ a }, ${ b }) }
+    }
 
     object Function1 extends Function1Module {
       def apply[A: Type, B: Type](fn: Expr[A => B])(a: Expr[A]): Expr[B] = '{
         ${ resetOwner(fn) }.apply(${ resetOwner(a) })
       }
     }
-
     object Function2 extends Function2Module {
       def tupled[A: Type, B: Type, C: Type](fn2: Expr[(A, B) => C]): Expr[((A, B)) => C] = '{ ${ fn2 }.tupled }
     }

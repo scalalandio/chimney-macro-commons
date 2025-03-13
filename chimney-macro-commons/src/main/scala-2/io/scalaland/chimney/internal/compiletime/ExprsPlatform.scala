@@ -23,20 +23,35 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
     val Null: Expr[Null] = c.Expr[Null](q"null")
     val Unit: Expr[Unit] = c.Expr[Unit](q"()")
 
-    def Boolean(value: Boolean): Expr[Boolean] = refineToLiteral(Type.BooleanLiteral, q"$value", value)
-    def Int(value: Int): Expr[Int] = refineToLiteral(Type.IntLiteral, q"$value", value)
-    def Long(value: Long): Expr[Long] = refineToLiteral(Type.LongLiteral, q"$value", value)
-    def Float(value: Float): Expr[Float] = refineToLiteral(Type.FloatLiteral, q"$value", value)
-    def Double(value: Double): Expr[Double] = refineToLiteral(Type.DoubleLiteral, q"$value", value)
-    def Char(value: Char): Expr[Char] = refineToLiteral(Type.CharLiteral, q"$value", value)
-    def String(value: String): Expr[String] = refineToLiteral(Type.StringLiteral, q"$value", value)
+    object Boolean extends BooleanModule {
+      def apply(value: Boolean): Expr[Boolean] = refineToLiteral(Type.BooleanLiteral, q"$value", value)
+    }
+    object Int extends IntModule {
+      def apply(value: Int): Expr[Int] = refineToLiteral(Type.IntLiteral, q"$value", value)
+    }
+    object Long extends LongModule {
+      def apply(value: Long): Expr[Long] = refineToLiteral(Type.LongLiteral, q"$value", value)
+    }
+    object Float extends FloatModule {
+      def apply(value: Float): Expr[Float] = refineToLiteral(Type.FloatLiteral, q"$value", value)
+    }
+    object Double extends DoubleModule {
+      def apply(value: Double): Expr[Double] = refineToLiteral(Type.DoubleLiteral, q"$value", value)
+    }
+    object Char extends CharModule {
+      def apply(value: Char): Expr[Char] = refineToLiteral(Type.CharLiteral, q"$value", value)
+    }
+    object String extends StringModule {
+      def apply(value: String): Expr[String] = refineToLiteral(Type.StringLiteral, q"$value", value)
+    }
 
-    def Tuple2[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)] = c.Expr[(A, B)](q"($a, $b)")
+    object Tuple2 extends Tuple2Module {
+      def apply[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)] = c.Expr[(A, B)](q"($a, $b)")
+    }
 
     object Function1 extends Function1Module {
       def apply[A: Type, B: Type](fn: Expr[A => B])(a: Expr[A]): Expr[B] = c.Expr[B](q"$fn.apply($a)")
     }
-
     object Function2 extends Function2Module {
       def tupled[A: Type, B: Type, C: Type](fn2: Expr[(A, B) => C]): Expr[((A, B)) => C] =
         c.Expr[((A, B)) => C](q"($fn2).tupled")
