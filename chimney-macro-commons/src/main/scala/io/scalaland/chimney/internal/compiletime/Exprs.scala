@@ -13,16 +13,40 @@ private[compiletime] trait Exprs { this: Definitions =>
     val Null: Expr[Null]
     val Unit: Expr[Unit]
 
-    // FIXME (2.0.0 cleanup): this should be following the pattern: apply, unapply and [A <: Type]: Expr[A]
-    def Boolean(value: Boolean): Expr[Boolean]
-    def Int(value: Int): Expr[Int]
-    def Long(value: Long): Expr[Long]
-    def Float(value: Float): Expr[Float]
-    def Double(value: Double): Expr[Double]
-    def Char(value: Char): Expr[Char]
-    def String(value: String): Expr[String]
+    // TODO: add unapply[A <: Tpe](expr[A]): Option[A]
+    val Boolean: BooleanModule
+    trait BooleanModule { this: Boolean.type =>
+      def apply(value: Boolean): Expr[Boolean]
+    }
+    val Int: IntModule
+    trait IntModule { this: Int.type =>
+      def apply(value: Int): Expr[Int]
+    }
+    val Long: LongModule
+    trait LongModule { this: Long.type =>
+      def apply(value: Long): Expr[Long]
+    }
+    val Float: FloatModule
+    trait FloatModule { this: Float.type =>
+      def apply(value: Float): Expr[Float]
+    }
+    val Double: DoubleModule
+    trait DoubleModule { this: Double.type =>
+      def apply(value: Double): Expr[Double]
+    }
+    val Char: CharModule
+    trait CharModule { this: Char.type =>
+      def apply(value: Char): Expr[Char]
+    }
+    val String: StringModule
+    trait StringModule { this: String.type =>
+      def apply(value: String): Expr[String]
+    }
 
-    def Tuple2[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)]
+    val Tuple2: Tuple2Module
+    trait Tuple2Module { this: Tuple2.type =>
+      def apply[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)]
+    }
 
     val Function1: Function1Module
     trait Function1Module { this: Function1.type =>
@@ -31,7 +55,6 @@ private[compiletime] trait Exprs { this: Definitions =>
       def instance[A: Type, B: Type](f: Expr[A] => Expr[B]): Expr[A => B] =
         ExprPromise.promise[A](ExprPromise.NameGenerationStrategy.FromType).map[Expr[B]](f).fulfilAsLambda
     }
-
     val Function2: Function2Module
     trait Function2Module { this: Function2.type =>
       def instance[A: Type, B: Type, C: Type](f: (Expr[A], Expr[B]) => Expr[C]): Expr[(A, B) => C] =
