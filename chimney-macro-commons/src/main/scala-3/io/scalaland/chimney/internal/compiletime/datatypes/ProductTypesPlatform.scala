@@ -93,10 +93,14 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
             .map(_._1)
             .toList
           val caseFieldNames = caseFields.map(_.name.trim).toSet
+          val argumentFields = {
+            val fields = sym.declaredFields.map(_.name.trim).toSet
+            paramListsOf(A, sym.primaryConstructor).flatten.map(_.name.trim).filter(fields).toSet
+          }
 
           def isCaseFieldName(sym: Symbol) = caseFieldNames(sym.name.trim)
 
-          def isArgumentField(sym: Symbol) = isCaseFieldName(sym) // TODO: other cases
+          def isArgumentField(sym: Symbol) = isCaseFieldName(sym) || argumentFields(sym.name.trim)
 
           val accessorsAndGetters = sym.methodMembers
             .filterNot(_.paramSymss.exists(_.exists(_.isType))) // remove methods with type parameters
