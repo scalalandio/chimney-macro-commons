@@ -121,7 +121,8 @@ private[compiletime] trait Types { this: (Existentials & Results) =>
     val Iterator: IteratorModule
     trait IteratorModule extends Ctor1[Iterator] { this: Iterator.type => }
 
-    def Factory[A: Type, C: Type]: Type[Factory[A, C]]
+    val Factory: FactoryModule
+    trait FactoryModule extends Ctor2[Factory] { this: Factory.type => }
 
     trait Literal[U] {
       def apply[A <: U](value: A): Type[A]
