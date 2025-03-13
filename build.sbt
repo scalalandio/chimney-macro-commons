@@ -1,7 +1,6 @@
 import com.jsuereth.sbtpgp.PgpKeys.publishSigned
 import com.typesafe.tools.mima.core.{Problem, ProblemFilters}
 import commandmatrix.extra.*
-import sbtprotoc.ProtocPlugin.ProtobufConfig
 
 // Used to configure the build so that it would format on compile during development but not on CI.
 lazy val isCI = sys.env.get("CI").contains("true")
@@ -35,13 +34,9 @@ val versions = new {
   val idePlatform = VirtualAxis.jvm
 
   // Dependencies
-  val cats = "2.13.0"
   val kindProjector = "0.13.3"
   val munit = "1.1.0"
   val scalaCollectionCompat = "2.13.0"
-  val scalaJavaCompat = "1.0.2"
-  val scalaJavaTime = "2.6.0"
-  val scalapbRuntime = scalapb.compiler.Version.scalapbVersion
 }
 
 // Common settings:
@@ -210,8 +205,7 @@ val settings = Seq(
       case Some((2, 12)) => Seq("-Ywarn-unused:locals") // Scala 2.12 ignores @unused warns
       case _             => Seq.empty
     }
-  },
-  coverageExcludedPackages := ".*DefCache.*" // DefCache is kind-a experimental utility
+  }
 )
 
 val dependencies = Seq(
@@ -239,7 +233,10 @@ val publishSettings = Seq(
   organizationHomepage := Some(url("https://scalaland.io")),
   licenses := Seq("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0")),
   scmInfo := Some(
-    ScmInfo(url("https://github.com/scalalandio/chimney/"), "scm:git:git@github.com:scalalandio/chimney.git")
+    ScmInfo(
+      url("https://github.com/scalalandio/chimney-macro-commons/"),
+      "scm:git:git@github.com:scalalandio/chimney-macro-commons.git"
+    )
   ),
   startYear := Some(2017),
   developers := List(
@@ -249,7 +246,7 @@ val publishSettings = Seq(
   pomExtra := (
     <issueManagement>
       <system>GitHub issues</system>
-      <url>https://github.com/scalalandio/chimney/issues</url>
+      <url>https://github.com/scalalandio/chimney-macro-commons/issues</url>
     </issueManagement>
   ),
   publishTo := sonatypePublishToBundle.value,
@@ -270,14 +267,12 @@ val publishSettings = Seq(
 val mimaSettings = Seq(
   mimaPreviousArtifacts := {
     val previousVersions = moduleName.value match {
-      // TODO: restore after 2.0.0 release
-      //case "chimney-macro-commons" | "chimney" | "chimney-cats" | "chimney-java-collections" | "chimney-protobufs" =>
-      //  Set("1.0.0-RC1", "1.0.0", "1.1.0", "1.2.0", "1.3.0", "1.4.0", "1.5.0", "1.6.0", "1.7.0", "1.7.1")
-      case _ => Set()
+      case "chimney-macro-commons" => Set() // add after RC-1 publish
+      case _                       => Set()
     }
     previousVersions.map(organization.value %% moduleName.value % _)
   },
-  mimaFailOnNoPrevious := false //true
+  mimaFailOnNoPrevious := false // true
 )
 
 val noPublishSettings =
@@ -285,30 +280,16 @@ val noPublishSettings =
 
 val ciCommand = (platform: String, scalaSuffix: String) => {
   val isJVM = platform == "JVM"
-  val isSandwichable = isJVM && scalaSuffix != "2_12"
 
   val clean = Vector("clean")
-  def withCoverage(tasks: String*): Vector[String] =
-    "coverage" +: tasks.toVector :+ "coverageAggregate" :+ "coverageOff"
 
   val projects = for {
-    name <- Vector(
-      "chimney",
-      "chimneyCats",
-      "chimneyProtobufs",
-      if (isJVM) "chimneyJavaCollections" else "",
-      if (isSandwichable) "chimneySandwichTests" else "",
-      "chimneyEngine"
-    )
-    if name.nonEmpty
+    name <- Vector("chimneyMacroCommons")
   } yield s"$name${if (isJVM) "" else platform}$scalaSuffix"
   def tasksOf(name: String): Vector[String] = projects.map(project => s"$project/$name")
 
   val tasks = if (isJVM) {
-    clean ++
-      withCoverage((tasksOf("compile") ++ tasksOf("test") ++ tasksOf("coverageReport")).toSeq *) ++
-      Vector("benchmarks/compile") ++
-      tasksOf("mimaReportBinaryIssues")
+    clean ++ tasksOf("compile") ++ tasksOf("test") ++ tasksOf("mimaReportBinaryIssues")
   } else {
     clean ++ tasksOf("test")
   }
@@ -318,11 +299,11 @@ val ciCommand = (platform: String, scalaSuffix: String) => {
 
 val publishLocalForTests = {
   val jvm = for {
-    module <- Vector("chimneyMacroCommons", "chimney", "chimneyCats", "chimneyProtobufs", "chimneyJavaCollections")
+    module <- Vector("chimneyMacroCommons")
     moduleVersion <- Vector(module, module + "3")
   } yield moduleVersion + "/publishLocal"
   val js = for {
-    module <- Vector("chimneyMacroCommons", "chimney").map(_ + "JS")
+    module <- Vector("chimneyMacroCommons").map(_ + "JS")
     moduleVersion <- Vector(module)
   } yield moduleVersion + "/publishLocal"
   jvm ++ js
@@ -340,18 +321,12 @@ lazy val root = project
   .settings(publishSettings)
   .settings(noPublishSettings)
   .aggregate(chimneyMacroCommons.projectRefs *)
-  .aggregate(chimney.projectRefs *)
-  .aggregate(chimneyCats.projectRefs *)
-  .aggregate(chimneyJavaCollections.projectRefs *)
-  .aggregate(chimneyProtobufs.projectRefs *)
-  .aggregate(chimneyEngine.projectRefs *)
-  .aggregate(chimneySandwichTests.projectRefs *)
   .settings(
-    moduleName := "chimney-build",
-    name := "chimney-build",
-    description := "Build setup for Chimney modules",
+    moduleName := "chimney-macro-commons-build",
+    name := "chimney-macro-commons-build",
+    description := "Build setup for Chimney Macro Commons modules",
     logo :=
-      s"""Chimney ${(version).value} build for (${versions.scala212}, ${versions.scala213}, ${versions.scala3}) x (Scala JVM, Scala.js $scalaJSVersion, Scala Native $nativeVersion)
+      s"""Chimney Macro Commons ${(version).value} build for (${versions.scala212}, ${versions.scala213}, ${versions.scala3}) x (Scala JVM, Scala.js $scalaJSVersion, Scala Native $nativeVersion)
          |
          |This build uses sbt-projectmatrix with sbt-commandmatrix helper:
          | - Scala JVM adds no suffix to a project name seen in build.sbt
@@ -365,8 +340,6 @@ lazy val root = project
          |
          |If you need to test library locally in a different project, use publish-local-for-tests or manually publishLocal:
          | - chimney-macro-commons (obligatory)
-         | - chimney
-         | - cats/java-collections/protobufs integration (optional)
          |for the right Scala version and platform (see projects task).
          |""".stripMargin,
     usefulTasks := Seq(
@@ -377,12 +350,9 @@ lazy val root = project
           "Compile and test all projects in all Scala versions and platforms (beware! it uses a lot of memory and might OOM!)"
         )
         .noAlias,
-      sbtwelcome.UsefulTask("chimney3/console", "Drop into REPL with Chimney DSL imported (3)").noAlias,
-      sbtwelcome.UsefulTask("chimney/console", "Drop into REPL with Chimney DSL imported (2.13)").noAlias,
       sbtwelcome
         .UsefulTask(releaseCommand(git.gitCurrentTags.value), "Publish everything to release or snapshot repository")
         .alias("ci-release"),
-      sbtwelcome.UsefulTask("benchmarks/Jmh/run", "Run JMH benchmarks suite").alias("runBenchmarks"),
       sbtwelcome.UsefulTask(ciCommand("JVM", "3"), "CI pipeline for Scala 3 on JVM").alias("ci-jvm-3"),
       sbtwelcome.UsefulTask(ciCommand("JVM", ""), "CI pipeline for Scala 2.13 on JVM").alias("ci-jvm-2_13"),
       sbtwelcome.UsefulTask(ciCommand("JVM", "2_12"), "CI pipeline for Scala 2.12 on JVM").alias("ci-jvm-2_12"),
@@ -409,7 +379,7 @@ lazy val chimneyMacroCommons = projectMatrix
   .in(file("chimney-macro-commons"))
   .someVariations(versions.scalas, versions.platforms)((addScala213plusDir +: only1VersionInIDE) *)
   .enablePlugins(GitVersioning, GitBranchPrompt)
-  .disablePlugins(WelcomePlugin, ProtocPlugin)
+  .disablePlugins(WelcomePlugin)
   .settings(
     moduleName := "chimney-macro-commons",
     name := "chimney-macro-commons",
@@ -419,198 +389,7 @@ lazy val chimneyMacroCommons = projectMatrix
   .settings(versionSchemeSettings *)
   .settings(publishSettings *)
   .settings(dependencies *)
-
-lazy val chimney = projectMatrix
-  .in(file("chimney"))
-  .someVariations(versions.scalas, versions.platforms)((addScala213plusDir +: only1VersionInIDE) *)
-  .enablePlugins(GitVersioning, GitBranchPrompt)
-  .disablePlugins(WelcomePlugin, ProtocPlugin)
-  .settings(
-    moduleName := "chimney",
-    name := "chimney",
-    description := "Scala library for boilerplate-free data rewriting"
-  )
-  .settings(settings *)
-  .settings(versionSchemeSettings *)
-  .settings(publishSettings *)
   .settings(mimaSettings *)
-  .settings(dependencies *)
-  .settings(
-    Compile / console / initialCommands := "import io.scalaland.chimney.*, io.scalaland.chimney.dsl.*",
-    Compile / doc / scalacOptions ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((3, _)) => Seq("-skip-by-regex:io\\.scalaland\\.chimney\\.internal")
-        case Some((2, _)) => Seq("-skip-packages", "io.scalaland.chimney.internal")
-        case _            => Seq.empty
-      }
-    },
-    // Changes to macros should not cause any runtime problems
-    mimaBinaryIssueFilters := Seq(ProblemFilters.exclude[Problem]("io.scalaland.chimney.internal.compiletime.*"))
-  )
-  .dependsOn(chimneyMacroCommons)
-
-lazy val chimneyCats = projectMatrix
-  .in(file("chimney-cats"))
-  .someVariations(versions.scalas, versions.platforms)((addScala213plusDir +: only1VersionInIDE) *)
-  .enablePlugins(GitVersioning, GitBranchPrompt)
-  .disablePlugins(WelcomePlugin, ProtocPlugin)
-  .settings(
-    moduleName := "chimney-cats",
-    name := "chimney-cats",
-    description := "Integrations with selected Cats data types and type classes"
-  )
-  .settings(settings *)
-  .settings(versionSchemeSettings *)
-  .settings(publishSettings *)
-  .settings(mimaSettings *)
-  .settings(dependencies *)
-  .settings(
-    Compile / console / initialCommands := "import io.scalaland.chimney.*, io.scalaland.chimney.dsl.*, io.scalaland.chimney.cats.*",
-    libraryDependencies += "org.typelevel" %%% "cats-core" % versions.cats,
-    libraryDependencies += "org.typelevel" %%% "cats-laws" % versions.cats % Test
-  )
-  .dependsOn(chimney % s"$Test->$Test;$Compile->$Compile")
-
-lazy val chimneyJavaCollections = projectMatrix
-  .in(file("chimney-java-collections"))
-  .someVariations(versions.scalas, List(VirtualAxis.jvm))(only1VersionInIDE *)
-  .enablePlugins(GitVersioning, GitBranchPrompt)
-  .disablePlugins(WelcomePlugin)
-  .settings(
-    moduleName := "chimney-java-collections",
-    name := "chimney-java-collections",
-    description := "Integrations with selected Java collections"
-  )
-  .settings(settings *)
-  .settings(versionSchemeSettings *)
-  .settings(publishSettings *)
-  .settings(mimaSettings *)
-  .settings(
-    Compile / console / initialCommands := "import io.scalaland.chimney.*, io.scalaland.chimney.dsl.*, io.scalaland.chimney.javacollections.*",
-    // Scala 2.12 doesn't have scala.jdk.StreamConverters and we use it in test of java.util.stream type class instances
-    libraryDependencies += "org.scala-lang.modules" %%% "scala-java8-compat" % versions.scalaJavaCompat % Test
-  )
-  .dependsOn(chimney % s"$Test->$Test;$Compile->$Compile")
-
-lazy val chimneyProtobufs = projectMatrix
-  .in(file("chimney-protobufs"))
-  .someVariations(versions.scalas, versions.platforms)(
-    (only1VersionInIDE :+ MatrixAction
-      .ForPlatforms(VirtualAxis.js, VirtualAxis.native)
-      .Settings(
-        // Scala.js and Scala Native decided to not implement java.time and let an external library do it,
-        // meanwhile we want to provide some type class instances for types in java.time.
-        libraryDependencies += "io.github.cquiroz" %%% "scala-java-time" % versions.scalaJavaTime
-      )) *
-  )
-  .enablePlugins(GitVersioning, GitBranchPrompt)
-  .disablePlugins(WelcomePlugin)
-  .settings(
-    moduleName := "chimney-protobufs",
-    name := "chimney-protobufs",
-    description := "Integrations with selected Protobufs build-in types"
-  )
-  .settings(settings *)
-  .settings(versionSchemeSettings *)
-  .settings(publishSettings *)
-  .settings(mimaSettings *)
-  .settings(
-    Compile / console / initialCommands := "import io.scalaland.chimney.*, io.scalaland.chimney.dsl.*, io.scalaland.chimney.protobufs.*",
-    scalacOptions := {
-      // protobufs Compile contains only generated classes, and scalacOptions from settings:* breaks Scala 3 compilation
-      val resetOptions = if (scalacOptions.value.contains("-scalajs")) Seq("-scalajs") else Seq.empty
-      val reAddNecessary = CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, 12)) =>
-          Seq(
-            "-language:higherKinds"
-          )
-        case _ => Seq.empty
-      }
-      resetOptions ++ reAddNecessary
-    },
-    Compile / PB.targets := Seq(scalapb.gen() -> (Compile / sourceManaged).value / "scalapb"),
-    Test / PB.protoSources += PB.externalSourcePath.value,
-    Test / PB.targets := Seq(scalapb.gen() -> (Test / sourceManaged).value / "scalapb"),
-    libraryDependencies += "com.thesamet.scalapb" %% "scalapb-runtime" % versions.scalapbRuntime % ProtobufConfig
-  )
-  .dependsOn(chimney % s"$Test->$Test;$Compile->$Compile")
-
-lazy val chimneyEngine = projectMatrix
-  .in(file("chimney-engine"))
-  .someVariations(versions.scalas, versions.platforms)((addScala213plusDir +: only1VersionInIDE) *)
-  .enablePlugins(GitVersioning, GitBranchPrompt)
-  .disablePlugins(WelcomePlugin, ProtocPlugin)
-  .settings(
-    moduleName := "chimney-engine",
-    name := "chimney-engine",
-    description := "Chimney derivation engine exposed for reuse in other libraries"
-  )
-  .settings(settings *)
-  .settings(versionScheme := None) // macros internal API is NOT stable yet
-  .settings(publishSettings *)
-  // .settings(mimaSettings *) // we need to get some feedback before we stabilize this
-  .settings(
-    coverageExcludedPackages := "io.scalaland.chimney.internal.compiletime.*", // we're only checking if it compiles
-    mimaFailOnNoPrevious := false // this hasn't been published yet
-  )
-  .settings(dependencies *)
-  .dependsOn(chimney)
-
-lazy val chimneySandwichTestCases213 = projectMatrix
-  .in(file("chimney-sandwich-test-cases-213"))
-  .someVariations(List(versions.scala213), List(VirtualAxis.jvm))()
-  .settings(settings *)
-  .settings(publishSettings *)
-  .settings(noPublishSettings *)
-  .settings(
-    moduleName := "chimney-sandwich-test-cases-213",
-    name := "chimney-sandwich-test-cases-213",
-    description := "Tests cases compiled with Scala 2.13 to test macros in 2.13x3 cross-compilation",
-    mimaFailOnNoPrevious := false // this module is not published
-  )
-
-lazy val chimneySandwichTestCases3 = projectMatrix
-  .in(file("chimney-sandwich-test-cases-3"))
-  .someVariations(List(versions.scala3), List(VirtualAxis.jvm))()
-  .settings(settings *)
-  .settings(publishSettings *)
-  .settings(noPublishSettings *)
-  .settings(
-    moduleName := "chimney-sandwich-test-cases-3",
-    name := "chimney-sandwich-test-cases-3",
-    description := "Tests cases compiled with Scala 3 to test macros in 2.13x3 cross-compilation",
-    mimaFailOnNoPrevious := false // this module is not published
-  )
-
-lazy val chimneySandwichTests = projectMatrix
-  .in(file("chimney-sandwich-tests"))
-  .someVariations(List(versions.scala213, versions.scala3), List(VirtualAxis.jvm))(only1VersionInIDE *)
-  .settings(settings *)
-  .settings(publishSettings *)
-  .settings(noPublishSettings *)
-  .settings(
-    moduleName := "chimney-sandwich-tests",
-    name := "chimney-sandwich-tests",
-    description := "Tests macros in 2.13x3 cross-compilation",
-    mimaFailOnNoPrevious := false // this module is not published
-  )
-  .dependsOn(chimney % s"$Test->$Test;$Compile->$Compile")
-  .dependsOn(chimneySandwichTestCases213 % s"$Test->$Test;$Compile->$Compile")
-  .dependsOn(chimneySandwichTestCases3 % s"$Test->$Test;$Compile->$Compile")
-
-lazy val benchmarks = projectMatrix
-  .in(file("benchmarks"))
-  .someVariations(List(versions.scala213), List(VirtualAxis.jvm))(only1VersionInIDE *) // only makes sense for JVM
-  .settings(
-    moduleName := "chimney-benchmarks",
-    name := "chimney-benchmarks",
-    description := "Chimney benchmarking harness"
-  )
-  .enablePlugins(JmhPlugin)
-  .disablePlugins(WelcomePlugin, ProtocPlugin)
-  .settings(settings *)
-  .settings(noPublishSettings *)
-  .dependsOn(chimney)
 
 //when having memory/GC-related errors during build, uncommenting this may be useful:
 Global / concurrentRestrictions := Seq(

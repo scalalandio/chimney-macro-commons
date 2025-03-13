@@ -36,7 +36,7 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
         isJavaSetter(setter) || isVar(setter)
     }
 
-    import platformSpecific.{isAbstract as _, isPublic as _, *}
+    import platformSpecific.*
     import Type.platformSpecific.*
     import Type.Implicits.*
 

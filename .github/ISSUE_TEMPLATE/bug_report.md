@@ -11,7 +11,7 @@ assignees: ''
 
 - [ ] I read the documentation at https://chimney.readthedocs.io/ and checked that the functionality exists
 - [ ] I verified that the behavior for my use case doesn't match the documentation
-- [ ] I checked the https://github.com/scalalandio/chimney/issues and haven't found the issue reported
+- [ ] I checked the https://github.com/scalalandio/chimney-macro-commons/issues and haven't found the issue reported
   - [ ] I checked the https://github.com/scala/bug/issues and haven't found the issue reported there - relevant for Scala 2 compiler crashes, since it might be a bug in the compiler
   - [ ] I checked the https://github.com/lampepfl/dotty/issues and haven't found the issue reported there - relevant for Scala 3 compiler crashes, since it might be a bug in the compiler 
 - [ ] I confirmed that the bug is not related to functionality that was deprecated: lifted transformers (`TransformerF`s) or `unsafeOption` flags
