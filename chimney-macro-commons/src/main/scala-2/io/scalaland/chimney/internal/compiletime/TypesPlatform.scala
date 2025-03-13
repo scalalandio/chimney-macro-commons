@@ -182,8 +182,10 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
       def unapply[A](A: Type[A]): Option[(??)] = A.asCtor[Iterator[?]].map(A0 => A0.param(0))
     }
 
-    object Factory
-    def Factory[A: Type, C: Type]: Type[Factory[A, C]] = weakTypeTag[Factory[A, C]]
+    object Factory extends FactoryModule {
+      def apply[A: Type, C: Type]: Type[Factory[A, C]] = weakTypeTag[Factory[A, C]]
+      def unapply[A](A: Type[A]): Option[(??, ??)] = A.asCtor[Factory[?, ?]].map(A0 => A0.param(0) -> A0.param(1))
+    }
 
     import platformSpecific.LiteralImpl
 

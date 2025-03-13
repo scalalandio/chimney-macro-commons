@@ -269,7 +269,13 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
       }
     }
 
-    def Factory[A: Type, C: Type]: Type[Factory[A, C]] = quoted.Type.of[Factory[A, C]]
+    object Factory extends FactoryModule {
+      def apply[A: Type, C: Type]: Type[Factory[A, C]] = quoted.Type.of[Factory[A, C]]
+      def unapply[A](A: Type[A]): Option[(??, ??)] = A match {
+        case '[Factory[innerA, innerB]] => Some(Type[innerA].as_?? -> Type[innerB].as_??)
+        case _                          => scala.None
+      }
+    }
 
     import platformSpecific.LiteralImpl
 
