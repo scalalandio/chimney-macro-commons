@@ -152,8 +152,6 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
     val Unit: Type[Unit] = quoted.Type.of[Unit]
     val String: Type[String] = quoted.Type.of[String]
 
-    def Tuple2[A: Type, B: Type]: Type[(A, B)] = quoted.Type.of[(A, B)]
-
     object Tuple2 extends Tuple2Module {
       def apply[A: Type, B: Type]: Type[(A, B)] = quoted.Type.of[(A, B)]
       def unapply[A](A: Type[A]): Option[(??, ??)] = A match {
@@ -162,8 +160,20 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
       }
     }
 
-    def Function1[A: Type, B: Type]: Type[A => B] = quoted.Type.of[A => B]
-    def Function2[A: Type, B: Type, C: Type]: Type[(A, B) => C] = quoted.Type.of[(A, B) => C]
+    object Function1 extends Function1Module {
+      def apply[A: Type, B: Type]: Type[A => B] = quoted.Type.of[A => B]
+      def unapply[A](A: Type[A]): Option[(??, ??)] = A match {
+        case '[innerA => innerB] => Some(Type[innerA].as_?? -> Type[innerB].as_??)
+        case _                   => scala.None
+      }
+    }
+    object Function2 extends Function2Module {
+      def apply[A: Type, B: Type, C: Type]: Type[(A, B) => C] = quoted.Type.of[(A, B) => C]
+      def unapply[A](A: Type[A]): Option[(??, ??, ??)] = A match {
+        case '[(innerA, innerB) => innerC] => Some((Type[innerA].as_??, Type[innerB].as_??, Type[innerC].as_??))
+        case _                             => scala.None
+      }
+    }
 
     object Array extends ArrayModule {
       def apply[A: Type]: Type[Array[A]] = quoted.Type.of[Array[A]]

@@ -127,8 +127,15 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
       def unapply[A](A: Type[A]): Option[(??, ??)] = A.asCtor[(?, ?)].map(A0 => A0.param(0) -> A0.param(1))
     }
 
-    def Function1[A: Type, B: Type]: Type[A => B] = weakTypeTag[A => B]
-    def Function2[A: Type, B: Type, C: Type]: Type[(A, B) => C] = weakTypeTag[(A, B) => C]
+    object Function1 extends Function1Module {
+      def apply[A: Type, B: Type]: Type[A => B] = weakTypeTag[A => B]
+      def unapply[A](A: Type[A]): Option[(??, ??)] = A.asCtor[? => ?].map(A0 => A0.param(0) -> A0.param(1))
+    }
+    object Function2 extends Function2Module {
+      def apply[A: Type, B: Type, C: Type]: Type[(A, B) => C] = weakTypeTag[(A, B) => C]
+      def unapply[A](A: Type[A]): Option[(??, ??, ??)] =
+        A.asCtor[(?, ?) => ?].map(A0 => (A0.param(0), A0.param(1), A0.param(2)))
+    }
 
     object Array extends ArrayModule {
       def apply[A: Type]: Type[Array[A]] = weakTypeTag[Array[A]]
@@ -175,6 +182,7 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
       def unapply[A](A: Type[A]): Option[(??)] = A.asCtor[Iterator[?]].map(A0 => A0.param(0))
     }
 
+    object Factory
     def Factory[A: Type, C: Type]: Type[Factory[A, C]] = weakTypeTag[Factory[A, C]]
 
     import platformSpecific.LiteralImpl

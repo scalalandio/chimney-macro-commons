@@ -88,8 +88,10 @@ private[compiletime] trait Types { this: (Existentials & Results) =>
     val Tuple2: Tuple2Module
     trait Tuple2Module extends Ctor2[Tuple2] { this: Tuple2.type => }
 
-    def Function1[A: Type, B: Type]: Type[A => B]
-    def Function2[A: Type, B: Type, C: Type]: Type[(A, B) => C]
+    val Function1: Function1Module
+    trait Function1Module extends Ctor2[Function1] { this: Function1.type => }
+    val Function2: Function2Module
+    trait Function2Module extends Ctor3[Function2] { this: Function2.type => }
 
     val Array: ArrayModule
     trait ArrayModule extends Ctor1[Array] { this: Array.type => }
