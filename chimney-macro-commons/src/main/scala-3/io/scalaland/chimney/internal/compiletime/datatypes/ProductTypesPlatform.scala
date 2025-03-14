@@ -2,7 +2,7 @@ package io.scalaland.chimney.internal.compiletime.datatypes
 
 import io.scalaland.chimney.internal.compiletime.DefinitionsPlatform
 
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.{ListMap, ListSet}
 
 trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
 
@@ -80,37 +80,39 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
           // additionally sometimes they appear twice! once as "val name" and once as "method name " (notice space at the end
           // of name). This breaks matching by order (tuples) but has to be fixed in a way that doesn't filter out fields
           // for normal cases.
-          val caseFields = sym.caseFields.zipWithIndex
-            .groupBy(_._1.name.trim)
-            .view
-            .map {
-              case (_, Seq(fieldIdx, _)) if fieldIdx._1.isDefDef => fieldIdx
-              case (_, Seq(_, fieldIdx)) if fieldIdx._1.isDefDef => fieldIdx
-              case (_, fieldIdxs)                                => fieldIdxs.head
-            }
-            .toList
-            .sortBy(_._2)
-            .map(_._1)
-            .toList
-          val caseFieldNames = caseFields.map(_.name.trim).toSet
-          val argumentFields = {
-            val fields = sym.declaredFields.map(_.name.trim).toSet
-            paramListsOf(A, sym.primaryConstructor).flatten.map(_.name.trim).filter(fields).toSet
+          val (argVals, bodyVals) = {
+            val fields = ListSet.from(
+              sym.declaredFields.zipWithIndex
+                .groupBy(_._1.name.trim)
+                .view
+                .map {
+                  case (_, Seq(fieldIdx, _)) if fieldIdx._1.isDefDef => fieldIdx
+                  case (_, Seq(_, fieldIdx)) if fieldIdx._1.isDefDef => fieldIdx
+                  case (_, fieldIdxs)                                => fieldIdxs.head
+                }
+                .toList
+                .sortBy(_._2)
+                .map(_._1)
+            )
+            val args = ListSet.from(paramListsOf(A, sym.primaryConstructor).flatten.filter(fields))
+            val body = fields.filterNot(args)
+            (args, body)
           }
+          val accessorsAndGetters = ListSet.from(
+            sym.methodMembers
+              .filterNot(_.paramSymss.exists(_.exists(_.isType))) // remove methods with type parameters
+              .filterNot(isGarbageSymbol)
+              .filter(isAccessor)
+              .filterNot(argVals)
+              .filterNot(bodyVals)
+          )
 
-          def isCaseFieldName(sym: Symbol) = caseFieldNames(sym.name.trim)
-
-          def isArgumentField(sym: Symbol) = isCaseFieldName(sym) || argumentFields(sym.name.trim)
-
-          val accessorsAndGetters = sym.methodMembers
-            .filterNot(_.paramSymss.exists(_.exists(_.isType))) // remove methods with type parameters
-            .filterNot(isGarbageSymbol)
-            .filterNot(isCaseFieldName)
-            .filter(isAccessor)
+          val isArgumentField = argVals
+          val isBodyField = bodyVals
           val localDefinitions = (sym.declaredMethods ++ sym.declaredFields).toSet
 
           // if we are taking caseFields but then we also are using ALL fieldMembers shouldn't we just use fieldMembers?
-          (caseFields ++ sym.fieldMembers ++ accessorsAndGetters).filter(_.isPublic).distinct.map { getter =>
+          (argVals ++ bodyVals ++ accessorsAndGetters).filter(_.isPublic).map { getter =>
             val name = getter.name
             val tpe = ExistentialType(returnTypeOf[Any](A, getter))
             def conformToIsGetters = !name.take(2).equalsIgnoreCase("is") || tpe.Underlying <:< Type[Boolean]
@@ -119,7 +121,7 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
                 sourceType =
                   if isArgumentField(getter) then Product.Getter.SourceType.ConstructorArgVal
                   else if isJavaGetter(getter) && conformToIsGetters then Product.Getter.SourceType.JavaBeanGetter
-                  else if getter.isValDef then Product.Getter.SourceType.ConstructorBodyVal
+                  else if isBodyField(getter) then Product.Getter.SourceType.ConstructorBodyVal
                   else Product.Getter.SourceType.AccessorMethod,
                 isInherited = !localDefinitions(getter),
                 get =
