@@ -76,13 +76,18 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
           val A = TypeRepr.of[A]
           val sym = A.typeSymbol
 
-          // case class fields appear once in sym.caseFields as vals and once in sym.declaredMethods as methods
-          // additionally sometimes they appear twice! once as "val name" and once as "method name " (notice space at the end
-          // of name). This breaks matching by order (tuples) but has to be fixed in a way that doesn't filter out fields
-          // for normal cases.
+          def sameNamedSymbolIn(syms: Set[Symbol]): Symbol => Boolean = {
+            val names = syms.map(_.name.trim).toSet
+            sym2 => names(sym2.name.trim)
+          }
+
           val (argVals, bodyVals) = {
-            val fields = ListSet.from(
-              sym.declaredFields.zipWithIndex
+            // case class fields appear once in sym.caseFields as vals and once in sym.declaredMethods as methods
+            // additionally sometimes they appear twice! once as "val name" and once as "method name " (notice space at the end
+            // of name). This breaks matching by order (tuples) but has to be fixed in a way that doesn't filter out fields
+            // for normal cases.
+            def sanitize(syms: List[Symbol]): List[Symbol] =
+              syms.zipWithIndex
                 .groupBy(_._1.name.trim)
                 .view
                 .map {
@@ -93,27 +98,40 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
                 .toList
                 .sortBy(_._2)
                 .map(_._1)
-            )
-            val args = ListSet.from(paramListsOf(A, sym.primaryConstructor).flatten.filter(fields))
-            val body = fields.filterNot(args)
-            (args, body)
+
+            // Make sure that: we only use public definitions, output is sorted by the order of definition
+            def sortedPublicUnique(syms: List[Symbol]): ListSet[Symbol] =
+              ListSet.from(sanitize(syms.filter(isPublic)).sorted)
+
+            // To distinct between vals defined in constructor and in body
+            val isArg = sameNamedSymbolIn(paramListsOf(A, sym.primaryConstructor).flatten.filter(isPublic).toSet)
+
+            val caseFields = sortedPublicUnique(sym.caseFields)
+
+            // As silly as it looks: when I tried to get rid of caseFields and handle everything with fieldMembers
+            // the result was really bad. It probably can be done, but it's error prone at best.
+            val (argFields, bodyFields) =
+              sortedPublicUnique(sym.fieldMembers.filterNot(sameNamedSymbolIn(caseFields))).partition(isArg)
+
+            (caseFields ++ argFields, bodyFields)
           }
           val accessorsAndGetters = ListSet.from(
             sym.methodMembers
               .filterNot(_.paramSymss.exists(_.exists(_.isType))) // remove methods with type parameters
               .filterNot(isGarbageSymbol)
               .filter(isAccessor)
-              .filterNot(argVals)
-              .filterNot(bodyVals)
+              .filter(isPublic)
+              .filterNot(sameNamedSymbolIn(argVals))
+              .filterNot(sameNamedSymbolIn(bodyVals))
+              .sorted
           )
 
           val isArgumentField = argVals
           val isBodyField = bodyVals
           val localDefinitions = (sym.declaredMethods ++ sym.declaredFields).toSet
 
-          // if we are taking caseFields but then we also are using ALL fieldMembers shouldn't we just use fieldMembers?
-          (argVals ++ bodyVals ++ accessorsAndGetters).filter(_.isPublic).map { getter =>
-            val name = getter.name
+          (argVals ++ bodyVals ++ accessorsAndGetters).map { getter =>
+            val name = getter.name.trim
             val tpe = ExistentialType(returnTypeOf[Any](A, getter))
             def conformToIsGetters = !name.take(2).equalsIgnoreCase("is") || tpe.Underlying <:< Type[Boolean]
             name -> tpe.mapK[Product.Getter[A, *]] { implicit Tpe: Type[tpe.Underlying] => _ =>
