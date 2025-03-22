@@ -320,11 +320,13 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
 
           // Classes defined inside a "class" or "def" have package.name.ClassName removed from the type,
           // so we have to prepend it ourselves to keep behavior consistent with Scala 2.
-          if symbolFullName != colorlessReprName && symbolFullName.endsWith("__" + colorlessReprName)
-          then symbolFullName.substring(0, symbolFullName.length - 2 - colorlessReprName.length) + colorfulReprName
-          else if symbolFullName != colorlessReprName && symbolFullName.endsWith("_" + colorlessReprName)
-          then symbolFullName.substring(0, symbolFullName.length - 1 - colorlessReprName.length) + colorfulReprName
-          else colorfulReprName
+          if symbolFullName != colorlessReprName then {
+            val pkg_Len = symbolFullName.length - colorlessReprName.length
+            (0 to pkg_Len).takeWhile(i => symbolFullName.endsWith(("_" * i) + colorlessReprName)).lastOption match {
+              case Some(_Len) => symbolFullName.substring(0, pkg_Len - _Len) + colorfulReprName
+              case None       => colorfulReprName
+            }
+          } else colorfulReprName
         }
         .getOrElse(repr.toString)
     }
