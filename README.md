@@ -2,7 +2,7 @@
 
 # Chimney Macro Commons
 
-[![Chimney Scala version support](https://index.scala-lang.org/scalalandio/chimney/chimney-macro-commons/latest.svg)](https://index.scala-lang.org/scalalandio/chimney/chimney-macro-commons)
+[![Chimney Macro Commons Scala version support](https://index.scala-lang.org/scalalandio/chimney-macro-commons/chimney-macro-commons/latest.svg)](https://index.scala-lang.org/scalalandio/chimney-macro-commons/chimney-macro-commons)
 
 [![CI build](https://github.com/scalalandio/chimney-macro-commons/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/scalalandio/chimney-macro-commons/actions)
 [![License](https://img.shields.io/:license-Apache%202-green.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt) [![Join the discussions at https://github.com/scalalandio/chimney/discussions](https://img.shields.io/github/discussions/scalalandio/chimney
