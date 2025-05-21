@@ -25,14 +25,41 @@ val versions = new {
   val scalas = List(scala212, scala213, scala3)
   val platforms = List(VirtualAxis.jvm, VirtualAxis.js, VirtualAxis.native)
 
-  // Which version should be used in IntelliJ
-  val ideScala = scala3
-  val idePlatform = VirtualAxis.jvm
-
   // Dependencies
   val kindProjector = "0.13.3"
   val munit = "1.1.1"
   val scalaCollectionCompat = "2.13.0"
+}
+
+// Development settings:
+
+val dev = new {
+
+  val props = scala.util
+    .Using(new java.io.FileInputStream("dev.properties")) { fis =>
+      val props = new java.util.Properties()
+      props.load(fis)
+      props
+    }
+    .get
+
+  // Which version should be used in IntelliJ
+  val ideScala = props.getProperty("ide.scala") match {
+    case "2.12" => versions.scala212
+    case "2.13" => versions.scala213
+    case "3"    => versions.scala3
+  }
+  val idePlatform = props.getProperty("ide.platform") match {
+    case "jvm"    => VirtualAxis.jvm
+    case "js"     => VirtualAxis.js
+    case "native" => VirtualAxis.native
+  }
+
+  val logCrossQuotes = props.getProperty("log.cross-quotes") match {
+    case "true"  => true
+    case "false" => false
+    case _       => !isCI
+  }
 }
 
 // Common settings:
@@ -41,15 +68,15 @@ Global / excludeLintKeys += git.useGitDescribe
 Global / excludeLintKeys += ideSkipProject
 val only1VersionInIDE =
   MatrixAction
-    .ForPlatform(versions.idePlatform)
+    .ForPlatform(dev.idePlatform)
     .Configure(
       _.settings(
-        ideSkipProject := (scalaVersion.value != versions.ideScala),
-        bspEnabled := (scalaVersion.value == versions.ideScala),
+        ideSkipProject := (scalaVersion.value != dev.ideScala),
+        bspEnabled := (scalaVersion.value == dev.ideScala),
         scalafmtOnCompile := !isCI
       )
     ) +:
-    versions.platforms.filter(_ != versions.idePlatform).map { platform =>
+    versions.platforms.filter(_ != dev.idePlatform).map { platform =>
       MatrixAction
         .ForPlatform(platform)
         .Configure(_.settings(ideSkipProject := true, bspEnabled := false, scalafmtOnCompile := false))
