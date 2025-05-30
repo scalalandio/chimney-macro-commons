@@ -168,7 +168,7 @@ private[compiletime] trait Types { this: (Existentials & Results) =>
       def apply[A](key: Type[A])(newValue: => F[A]): F[A] =
         storage.find(_.key =:= key) match {
           case Some(found) => found.value.asInstanceOf[F[A]]
-          case None =>
+          case None        =>
             val value = newValue
             storage += Entry(key, value)
             value
