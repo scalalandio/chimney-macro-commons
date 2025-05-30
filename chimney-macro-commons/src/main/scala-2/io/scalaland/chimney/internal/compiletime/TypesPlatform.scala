@@ -212,7 +212,7 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
       def helper(tpe: c.Type): String =
         tpe.toString match {
           case javaEnumRegexpFormat(enumName, valueName) if tpe.typeSymbol.isJavaEnum => s"$enumName.$valueName"
-          case _ =>
+          case _                                                                      =>
             val tpes = tpe.typeArgs.map(helper)
             val tpeArgs = if (tpes.isEmpty) "" else s"[${tpes.mkString(", ")}]"
             tpe.dealias.typeSymbol.fullName + tpeArgs
