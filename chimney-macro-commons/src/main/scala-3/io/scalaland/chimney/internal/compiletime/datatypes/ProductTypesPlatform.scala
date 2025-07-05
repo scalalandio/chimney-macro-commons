@@ -41,8 +41,9 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
     import Type.Implicits.*
 
     def isPOJO[A](implicit A: Type[A]): Boolean = {
-      val sym = TypeRepr.of(using A).typeSymbol
-      !A.isPrimitive && !(A <:< Type[String]) && (sym.isClassDef || sym.isAliasType) && !sym.isAbstract &&
+      val tpeSym = TypeRepr.of(using A).typeSymbol
+      val sym = if tpeSym.isAliasType then TypeRepr.of(using A).classSymbol.getOrElse(tpeSym) else tpeSym
+      !A.isPrimitive && !(A <:< Type[String]) && sym.isClassDef && !sym.isAbstract &&
       publicPrimaryOrOnlyPublicConstructor(sym).isDefined
     }
     def isCaseClass[A](implicit A: Type[A]): Boolean = {
