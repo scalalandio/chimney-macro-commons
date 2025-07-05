@@ -6,7 +6,7 @@ import scala.collection.immutable.{ListMap, ListSet}
 
 trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
 
-  import quotes.*, quotes.reflect.*
+  import quotes.*, quotes.reflect.{*, given}
 
   protected object ProductType extends ProductTypesModule {
 
@@ -41,7 +41,8 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
     import Type.Implicits.*
 
     def isPOJO[A](implicit A: Type[A]): Boolean = {
-      val sym = TypeRepr.of(using A).typeSymbol
+      val tpeSym = TypeRepr.of(using A).typeSymbol
+      val sym = if tpeSym.isAliasType then TypeRepr.of(using A).classSymbol.getOrElse(tpeSym) else tpeSym
       !A.isPrimitive && !(A <:< Type[String]) && sym.isClassDef && !sym.isAbstract &&
       publicPrimaryOrOnlyPublicConstructor(sym).isDefined
     }
