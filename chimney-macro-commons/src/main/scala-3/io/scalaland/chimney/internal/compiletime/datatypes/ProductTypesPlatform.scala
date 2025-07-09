@@ -6,7 +6,7 @@ import scala.collection.immutable.{ListMap, ListSet}
 
 trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
 
-  import quotes.*, quotes.reflect.{*, given}
+  import quotes.*, quotes.reflect.*
 
   protected object ProductType extends ProductTypesModule {
 
