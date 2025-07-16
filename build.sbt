@@ -54,12 +54,6 @@ val dev = new {
     case "js"     => VirtualAxis.js
     case "native" => VirtualAxis.native
   }
-
-  val logCrossQuotes = props.getProperty("log.cross-quotes") match {
-    case "true"  => true
-    case "false" => false
-    case _       => !isCI
-  }
 }
 
 // Common settings:
