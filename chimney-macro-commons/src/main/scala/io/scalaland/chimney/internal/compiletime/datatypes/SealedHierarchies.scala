@@ -19,7 +19,7 @@ trait SealedHierarchies { this: Definitions =>
   protected trait SealedHierarchyModule { this: SealedHierarchy.type =>
 
     def parse[A: Type]: Option[Enum[A]]
-    final def unapply[A](tpe: Type[A]): Option[Enum[A]] = parse(tpe)
+    final def unapply[A](tpe: Type[A]): Option[Enum[A]] = parse(using tpe)
 
     def isJavaEnum[A: Type]: Boolean
 
