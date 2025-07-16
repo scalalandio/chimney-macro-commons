@@ -27,23 +27,25 @@ trait IterableOrArrays { this: Definitions =>
 
     private type Cached[M] = Option[Existential[IterableOrArray[M, *]]]
     private val iterableOrArrayCache = new Type.Cache[Cached]
-    def unapply[M](implicit M: Type[M]): Option[Existential[IterableOrArray[M, *]]] = iterableOrArrayCache(M)(M match {
-      case Type.Map(k, v) =>
-        import k.Underlying as K, v.Underlying as V
-        val a = ExistentialType[(K, V)]
-        import a.Underlying as Inner
-        Some(buildInIterableSupport[M, Inner](s"support build-in for Map-type ${Type.prettyPrint[M]}"))
-      case Type.Iterable(a) =>
-        import a.Underlying as Inner
-        Some(buildInIterableSupport[M, Inner](s"support build-in for Iterable-type ${Type.prettyPrint[M]}"))
-      case Type.Iterator(a) =>
-        import a.Underlying as Inner
-        Some(buildInIteratorSupport[M, Inner])
-      case Type.Array(a) =>
-        import a.Underlying as Inner
-        Some(buildInArraySupport[M, Inner])
-      case _ => buildInIArraySupport[M]
-    })
+    final def parse[M](implicit M: Type[M]): Option[Existential[IterableOrArray[M, *]]] =
+      iterableOrArrayCache(M)(M match {
+        case Type.Map(k, v) =>
+          import k.Underlying as K, v.Underlying as V
+          val a = ExistentialType[(K, V)]
+          import a.Underlying as Inner
+          Some(buildInIterableSupport[M, Inner](s"support build-in for Map-type ${Type.prettyPrint[M]}"))
+        case Type.Iterable(a) =>
+          import a.Underlying as Inner
+          Some(buildInIterableSupport[M, Inner](s"support build-in for Iterable-type ${Type.prettyPrint[M]}"))
+        case Type.Iterator(a) =>
+          import a.Underlying as Inner
+          Some(buildInIteratorSupport[M, Inner])
+        case Type.Array(a) =>
+          import a.Underlying as Inner
+          Some(buildInArraySupport[M, Inner])
+        case _ => buildInIArraySupport[M]
+      })
+    final def unapply[M](M: Type[M]): Option[Existential[IterableOrArray[M, *]]] = parse(using M)
 
     private def buildInIterableSupport[M: Type, Inner: Type](hint: String): Existential[IterableOrArray[M, *]] =
       Existential[IterableOrArray[M, *], Inner](

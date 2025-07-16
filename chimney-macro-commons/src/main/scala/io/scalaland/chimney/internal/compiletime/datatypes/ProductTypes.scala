@@ -114,7 +114,7 @@ trait ProductTypes { this: Definitions =>
     final def parse[A: Type]: Option[Product[A]] = parseExtraction[A].zip(parseConstructor[A]).headOption.map {
       case (getters, constructor) => Product(getters, constructor)
     }
-    final def unapply[A](tpe: Type[A]): Option[Product[A]] = parse(tpe)
+    final def unapply[A](tpe: Type[A]): Option[Product[A]] = parse(using tpe)
 
     def exprAsInstanceOfMethod[A: Type](args: List[ListMap[String, ??]])(expr: Expr[Any]): Product.Constructor[A]
 
