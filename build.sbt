@@ -24,7 +24,7 @@ val versions = new {
   // Dependencies.
   val kindProjector = "0.13.4"
   val munit = "1.2.1"
-  val scalaCollectionCompat = "2.13.0"
+  val scalaCollectionCompat = "2.14.0"
 
   // Explicitly handle Scala 2 and Scala 3 separately.
   def fold2[A](scalaVersion: String)(for2: => Seq[A], for3: => Seq[A]): Seq[A] =
