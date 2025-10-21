@@ -184,7 +184,6 @@ private[compiletime] trait ExprPromisesPlatform extends ExprPromises { this: Def
             }.asInstanceOf[A]
           }
           val pending: PendingDef = new PendingDef {
-            var isRecursive: Boolean = false
             def cast[A]: A = call.asInstanceOf[A]
           }
         }

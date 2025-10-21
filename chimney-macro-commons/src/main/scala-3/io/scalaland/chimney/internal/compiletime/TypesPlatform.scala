@@ -43,7 +43,7 @@ private[compiletime] trait TypesPlatform extends Types { this: DefinitionsPlatfo
 
       // TODO: assumes each parameter list is made completely out of types OR completely out of values
       /** Applies type arguments obtained from tpe to the type parameters in method's parameters' types */
-      def paramListsOf(tpe: TypeRepr, method: Symbol): List[List[Symbol]] =
+      def paramListsOf(@scala.annotation.unused tpe: TypeRepr, method: Symbol): List[List[Symbol]] =
         method.paramSymss.filterNot(_.exists(_.isType))
 
       /** Applies type arguments obtained from tpe to the type parameters in method's return type */
