@@ -37,7 +37,7 @@ private[compiletime] trait ExprPromisesPlatform extends ExprPromises { this: Def
     ): Expr[From => To] = '{ (param: From) =>
       ${
         PrependDefinitionsTo.initializeDefns[To](
-          vals = Vector((fromName, ExistentialExpr('{ param }), PrependDefinitionsTo.DefnType.Val)),
+          vals = Vector((fromName, ExistentialExpr('param), PrependDefinitionsTo.DefnType.Val)),
           expr = to
         )
       }
@@ -51,8 +51,8 @@ private[compiletime] trait ExprPromisesPlatform extends ExprPromises { this: Def
       ${
         PrependDefinitionsTo.initializeDefns[To](
           vals = Vector(
-            (fromName, ExistentialExpr('{ param }), PrependDefinitionsTo.DefnType.Val),
-            (from2Name, ExistentialExpr('{ param2 }), PrependDefinitionsTo.DefnType.Val)
+            (fromName, ExistentialExpr('param), PrependDefinitionsTo.DefnType.Val),
+            (from2Name, ExistentialExpr('param2), PrependDefinitionsTo.DefnType.Val)
           ),
           expr = to
         )
