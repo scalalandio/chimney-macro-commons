@@ -31,7 +31,7 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
     object String extends StringModule { def apply(value: String): Expr[String] = scala.quoted.Expr(value) }
 
     object Tuple2 extends Tuple2Module {
-      def apply[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)] = '{ (${ a }, ${ b }) }
+      def apply[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[(A, B)] = '{ ($a, $b) }
     }
 
     object Function1 extends Function1Module {
@@ -40,7 +40,7 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
       }
     }
     object Function2 extends Function2Module {
-      def tupled[A: Type, B: Type, C: Type](fn2: Expr[(A, B) => C]): Expr[((A, B)) => C] = '{ ${ fn2 }.tupled }
+      def tupled[A: Type, B: Type, C: Type](fn2: Expr[(A, B) => C]): Expr[((A, B)) => C] = '{ $fn2.tupled }
     }
 
     object Array extends ArrayModule {
@@ -53,7 +53,7 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
       def to[A: Type, C: Type](array: Expr[Array[A]])(
           factoryExpr: Expr[scala.collection.compat.Factory[A, C]]
       ): Expr[C] =
-        '{ ${ resetOwner(array) }.to(${ factoryExpr }) }
+        '{ ${ resetOwner(array) }.to($factoryExpr) }
 
       def iterator[A: Type](array: Expr[Array[A]]): Expr[Iterator[A]] = '{ ${ resetOwner(array) }.iterator }
     }
@@ -69,7 +69,7 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
       def to[A: Type, C: Type](iarray: Expr[IArray[A]])(
           factoryExpr: Expr[scala.collection.compat.Factory[A, C]]
       ): Expr[C] =
-        '{ ${ resetOwner(iarray) }.to(${ factoryExpr }) }
+        '{ ${ resetOwner(iarray) }.to($factoryExpr) }
 
       def iterator[A: Type](iarray: Expr[IArray[A]]): Expr[Iterator[A]] = '{ ${ resetOwner(iarray) }.iterator }
     }
@@ -79,25 +79,25 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
       def empty[A: Type]: Expr[Option[A]] = '{ scala.Option.empty[A] }
       val None: Expr[scala.None.type] = '{ scala.None }
       def map[A: Type, B: Type](opt: Expr[Option[A]])(f: Expr[A => B]): Expr[Option[B]] = '{
-        ${ resetOwner(opt) }.map(${ f })
+        ${ resetOwner(opt) }.map($f)
       }
       def fold[A: Type, B: Type](opt: Expr[Option[A]])(onNone: Expr[B])(onSome: Expr[A => B]): Expr[B] =
-        '{ ${ resetOwner(opt) }.fold(${ onNone })(${ onSome }) }
+        '{ ${ resetOwner(opt) }.fold($onNone)($onSome) }
       def orElse[A: Type](opt1: Expr[Option[A]], opt2: Expr[Option[A]]): Expr[Option[A]] =
-        '{ ${ opt1 }.orElse(${ opt2 }) }
+        '{ $opt1.orElse($opt2) }
       def getOrElse[A: Type](opt: Expr[Option[A]])(orElse: Expr[A]): Expr[A] =
-        '{ ${ opt }.getOrElse(${ orElse }) }
+        '{ $opt.getOrElse($orElse) }
       def get[A: Type](opt: Expr[Option[A]]): Expr[A] =
-        '{ ${ opt }.get }
+        '{ $opt.get }
       def isDefined[A: Type](opt: Expr[Option[A]]): Expr[Boolean] =
-        '{ ${ opt }.isDefined }
+        '{ $opt.isDefined }
     }
 
     object Either extends EitherModule {
       def fold[L: Type, R: Type, A: Type](either: Expr[Either[L, R]])(left: Expr[L => A])(
           right: Expr[R => A]
       ): Expr[A] =
-        '{ ${ resetOwner(either) }.fold[A](${ left }, ${ right }) }
+        '{ ${ resetOwner(either) }.fold[A]($left, $right) }
 
       def orElse[L: Type, R: Type](either1: Expr[Either[L, R]], either2: Expr[Either[L, R]]): Expr[Either[L, R]] =
         '{ ${ resetOwner(either1) }.orElse(${ resetOwner(either2) }) }
@@ -132,7 +132,7 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
 
     object Iterator extends IteratorModule {
       def map[A: Type, B: Type](iterator: Expr[Iterator[A]])(fExpr: Expr[A => B]): Expr[Iterator[B]] =
-        '{ ${ iterator }.map(${ fExpr }) }
+        '{ $iterator.map($fExpr) }
 
       def concat[A: Type](iterator: Expr[Iterator[A]], iterator2: Expr[Iterator[A]]): Expr[Iterator[A]] =
         '{ ${ resetOwner(iterator) } ++ ${ resetOwner(iterator2) } }
@@ -140,14 +140,14 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
       def to[A: Type, C: Type](iterator: Expr[Iterator[A]])(
           factoryExpr: Expr[scala.collection.compat.Factory[A, C]]
       ): Expr[C] =
-        '{ ${ iterator }.to(${ factoryExpr }) }
+        '{ $iterator.to($factoryExpr) }
 
-      def zipWithIndex[A: Type](it: Expr[Iterator[A]]): Expr[Iterator[(A, Int)]] = '{ ${ it }.zipWithIndex }
+      def zipWithIndex[A: Type](it: Expr[Iterator[A]]): Expr[Iterator[(A, Int)]] = '{ $it.zipWithIndex }
     }
 
     def ifElse[A: Type](cond: Expr[Boolean])(ifBranch: Expr[A])(elseBranch: Expr[A]): Expr[A] =
       '{
-        if ${ resetOwner(cond) } then ${ ifBranch } else ${ elseBranch }
+        if ${ resetOwner(cond) } then $ifBranch else $elseBranch
       }
 
     def block[A: Type](statements: List[Expr[Unit]], expr: Expr[A]): Expr[A] =
@@ -196,9 +196,9 @@ private[compiletime] trait ExprsPlatform extends Exprs { this: DefinitionsPlatfo
       ).asExprOf[A]
     }
 
-    def suppressUnused[A: Type](expr: Expr[A]): Expr[Unit] = '{ val _ = ${ expr } }
+    def suppressUnused[A: Type](expr: Expr[A]): Expr[Unit] = '{ val _ = $expr }
 
-    def eq[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[Boolean] = '{ ${ a } == ${ b } }
+    def eq[A: Type, B: Type](a: Expr[A], b: Expr[B]): Expr[Boolean] = '{ $a == $b }
 
     def asInstanceOf[A: Type, B: Type](expr: Expr[A]): Expr[B] = '{ ${ resetOwner(expr) }.asInstanceOf[B] }
 
