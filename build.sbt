@@ -23,7 +23,7 @@ val versions = new {
 
   // Dependencies.
   val kindProjector = "0.13.4"
-  val munit = "1.2.2"
+  val munit = "1.2.3"
   val scalaCollectionCompat = "2.14.0"
 
   // Explicitly handle Scala 2 and Scala 3 separately.
