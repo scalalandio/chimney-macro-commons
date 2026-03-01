@@ -167,7 +167,8 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
                         }
                       } else {
                         // tupleXXL.productElement(n)
-                        '{ $in.asInstanceOf[scala.Product].productElement(${ quoted.Expr(idx) }) }.asExprOf[Elem]
+                        '{ $in.asInstanceOf[scala.Product].productElement(${ quoted.Expr(idx) }).asInstanceOf[Elem] }
+                          .asExprOf[Elem]
                       }
                     name -> et.mapK[Product.Getter[A, *]] { implicit Tpe: Type[Elem] => _ =>
                       Product.Getter(
@@ -377,7 +378,8 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
                     .appliedToArgs(argTerms)
                     .asExprOf[A]
                 // TupleXXL
-                case i => '{ Tuple.fromIArray(IArray(${ scala.quoted.Varargs(argTerms.map(_.asExpr)) }*)) }.asExprOf[A]
+                case i =>
+                  '{ Tuple.fromIArray(IArray(${ scala.quoted.Varargs(argTerms.map(_.asExpr)) }*)).asInstanceOf[A] }
               }
             }
             Some(Product.Constructor(parameters, constructor))
