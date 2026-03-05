@@ -68,6 +68,17 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
       isPOJO[A] && mem.exists(isDefaultConstructor) && mem.exists(isJavaSetterOrVar)
     }
 
+    private def isNamedTuple[A](implicit A: Type[A]): Boolean = {
+      // Borrowed from an amazing work by @arainko,
+      // https://github.com/arainko/ducktape/blob/7984125ffe3493c2e61b72dea799017bb31597f7/ducktape/src/main/scala/io/github/arainko/ducktape/internal/Context.scala#L24-L38
+      val namedTupleTpe = Symbol
+        .requiredModule("scala.NamedTuple")
+        .declaredType("NamedTuple")
+        .headOption
+        .map(_.typeRef.asType)
+      namedTupleTpe.exists(ntt => TypeRepr.of[A].dealias.typeSymbol == TypeRepr.of(using ntt).typeSymbol)
+    }
+
     private type CachedExtraction[A] = Option[Product.Extraction[A]]
     private val extractionCache = new Type.Cache[CachedExtraction]
     def parseExtraction[A: Type]: Option[Product.Extraction[A]] = extractionCache(Type[A])(
@@ -131,24 +142,72 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
           val isBodyField = bodyVals
           val localDefinitions = (sym.declaredMethods ++ sym.declaredFields).toSet
 
-          (argVals ++ bodyVals ++ accessorsAndGetters).map { getter =>
-            val name = getter.name.trim
-            val tpe = ExistentialType(returnTypeOf[Any](A, getter))
-            def conformToIsGetters = !name.take(2).equalsIgnoreCase("is") || tpe.Underlying <:< Type[Boolean]
-            name -> tpe.mapK[Product.Getter[A, *]] { implicit Tpe: Type[tpe.Underlying] => _ =>
-              Product.Getter(
-                sourceType =
-                  if isArgumentField(getter) then Product.Getter.SourceType.ConstructorArgVal
-                  else if isJavaGetter(getter) && conformToIsGetters then Product.Getter.SourceType.JavaBeanGetter
-                  else if isBodyField(getter) then Product.Getter.SourceType.ConstructorBodyVal
-                  else Product.Getter.SourceType.AccessorMethod,
-                isInherited = !localDefinitions(getter),
-                get =
-                  // TODO: pathological cases like def foo[Unused]()()()
-                  if getter.paramSymss.isEmpty then (in: Expr[A]) =>
-                    in.asTerm.select(getter).appliedToArgss(Nil).asExprOf[tpe.Underlying]
-                  else (in: Expr[A]) => in.asTerm.select(getter).appliedToNone.asExprOf[tpe.Underlying]
-              )
+          if isNamedTuple[A] then {
+            scala.quoted.Expr.summon[scala.deriving.Mirror.ProductOf[A]] match {
+              case Some('{
+                    $m: scala.deriving.Mirror.Product {
+                      type MirroredElemLabels = labels
+                      type MirroredElemTypes = types
+                    }
+                  }) =>
+                val elemTypes = tupleUnroll(quoted.Type.of[types])
+                elemTypes
+                  .zip(tupleUnrollStrings(TypeRepr.of[labels]))
+                  .zipWithIndex
+                  .map { case ((tpe, name), idx) =>
+                    val et = ExistentialType(fromUntyped[Any](tpe))
+                    type Elem = et.Underlying
+                    def get(in: Expr[A]) =
+                      if elemTypes.size < 23 then {
+                        // tuple._1, tuple._2, ...
+                        val tupleType = tupleRollUp(elemTypes.toVector)
+                        tupleType match {
+                          case '[tpe] =>
+                            Select.unique('{ $in.asInstanceOf[tpe] }.asTerm, s"_${idx + 1}").asExprOf[Elem]
+                        }
+                      } else {
+                        // tupleXXL.productElement(n)
+                        '{ $in.asInstanceOf[scala.Product].productElement(${ quoted.Expr(idx) }).asInstanceOf[Elem] }
+                          .asExprOf[Elem]
+                      }
+                    name -> et.mapK[Product.Getter[A, *]] { implicit Tpe: Type[Elem] => _ =>
+                      Product.Getter(
+                        sourceType = Product.Getter.SourceType.ConstructorArgVal,
+                        isInherited = false,
+                        get = get
+                      )
+                    }
+                  }
+
+              case _ => {
+                // $COVERAGE-OFF$should never happen unless we messed up
+                assertionFailed(
+                  s"Unexpected error: cannot summon Mirror.ProductOf[A], where A should be a NamedTuple, while A is actually ${Type.prettyPrint[A]}"
+                )
+                // $COVERAGE-ON$
+              }
+            }
+          }: @scala.annotation.nowarn("msg=unused [local definition]")
+          else {
+            (argVals ++ bodyVals ++ accessorsAndGetters).map { getter =>
+              val name = getter.name.trim
+              val tpe = ExistentialType(returnTypeOf[Any](A, getter))
+              def conformToIsGetters = !name.take(2).equalsIgnoreCase("is") || tpe.Underlying <:< Type[Boolean]
+              name -> tpe.mapK[Product.Getter[A, *]] { implicit Tpe: Type[tpe.Underlying] => _ =>
+                Product.Getter(
+                  sourceType =
+                    if isArgumentField(getter) then Product.Getter.SourceType.ConstructorArgVal
+                    else if isJavaGetter(getter) && conformToIsGetters then Product.Getter.SourceType.JavaBeanGetter
+                    else if isBodyField(getter) then Product.Getter.SourceType.ConstructorBodyVal
+                    else Product.Getter.SourceType.AccessorMethod,
+                  isInherited = !localDefinitions(getter),
+                  get =
+                    // TODO: pathological cases like def foo[Unused]()()()
+                    if getter.paramSymss.isEmpty then (in: Expr[A]) =>
+                      in.asTerm.select(getter).appliedToArgss(Nil).asExprOf[tpe.Underlying]
+                    else (in: Expr[A]) => in.asTerm.select(getter).appliedToNone.asExprOf[tpe.Underlying]
+                )
+              }
             }
           }
         })
@@ -280,6 +339,52 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
         }
 
         Some(Product.Constructor(parameters, constructor))
+      } else if isNamedTuple[A] then {
+        scala.quoted.Expr.summon[scala.deriving.Mirror.ProductOf[A]] match {
+          case Some('{
+                $m: scala.deriving.Mirror.Product {
+                  type MirroredElemLabels = labels
+                  type MirroredElemTypes = types
+                }
+              }) =>
+            val elemTypes = tupleUnroll(quoted.Type.of[types])
+            val elemNames = tupleUnrollStrings(TypeRepr.of[labels])
+            val parameters = ListMap.from(
+              elemTypes.zip(elemNames).map { case (tpe, name) =>
+                val et = ExistentialType(fromUntyped[Any](tpe))
+                name -> et.mapK[Product.Parameter] { implicit Tpe: Type[et.Underlying] => _ =>
+                  Product.Parameter(
+                    Product.Parameter.TargetType.ConstructorParameter,
+                    defaultValue = None
+                  )
+                }
+              }
+            )
+            val constructor: Product.Arguments => Expr[A] = arguments => {
+              val (constructorArguments, _) = checkArguments[A](parameters, arguments)
+              val arity = parameters.size
+              val argExprs = elemNames.map(name => constructorArguments(name).value)
+              val argTerms = argExprs.map(_.asTerm)
+              arity match {
+                case 0 => '{ EmptyTuple }.asExprOf[A]
+                // Tuple1, Tuple2, ..., Tuple22
+                case i if i < 23 =>
+                  val tupleSym = if i == 1 then TypeRepr.of[Tuple1].classSymbol.get else defn.TupleClass(i)
+                  val companion = tupleSym.companionModule
+                  val applyMethod = companion.methodMember("apply").head
+                  Ref(companion)
+                    .select(applyMethod)
+                    .appliedToTypes(elemTypes)
+                    .appliedToArgs(argTerms)
+                    .asExprOf[A]
+                // TupleXXL
+                case i =>
+                  '{ Tuple.fromIArray(IArray(${ scala.quoted.Varargs(argTerms.map(_.asExpr)) }*)).asInstanceOf[A] }
+              }
+            }
+            Some(Product.Constructor(parameters, constructor))
+          case _ => None
+        }: @scala.annotation.nowarn("msg=unused [local definition]")
       } else None
     }
 
@@ -357,5 +462,38 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
     )
 
     private val isGarbageSymbol = ((s: Symbol) => s.name) andThen ProductTypes.isGarbageName
+
+    // Borrowed from an amazing work by @arainko,
+    // https://github.com/arainko/ducktape/blob/7984125ffe3493c2e61b72dea799017bb31597f7/ducktape/src/main/scala/io/github/arainko/ducktape/internal/Tuples.scala#L8-L30
+    private def tupleUnroll(tpe: quoted.Type[?]): List[TypeRepr] = {
+      @scala.annotation.tailrec
+      def loop(curr: quoted.Type[?], acc: List[TypeRepr]): List[reflect.TypeRepr] =
+        curr match {
+          case '[head *: tail] => loop(quoted.Type.of[tail], TypeRepr.of[head] :: acc)
+          case '[EmptyTuple]   => acc
+          case other           => {
+            // $COVERAGE-OFF$should never happen unless we messed up
+            assertionFailed(
+              s"Unexpected type (${TypeRepr.of(using other).show}) encountered when extracting tuple type elems."
+            )
+            // $COVERAGE-ON$
+          }
+        }
+      loop(tpe, Nil).reverse
+    }
+
+    private def tupleUnrollStrings(tr: TypeRepr): List[String] =
+      tupleUnroll(tr.asType).map { case ConstantType(StringConstant(s)) => s }
+
+    private def tupleRollUp(elements: Vector[quotes.reflect.TypeRepr]) = elements.size match {
+      case 0                  => TypeRepr.of[EmptyTuple].asType
+      case 1                  => elements.head.asType match { case '[tpe] => TypeRepr.of[Tuple1[tpe]].asType }
+      case size if size <= 22 => defn.TupleClass(size).typeRef.appliedTo(elements.toList).asType
+      case _                  =>
+        val TupleCons = TypeRepr.of[*:]
+        val tpe = elements.foldRight(TypeRepr.of[EmptyTuple])((curr, acc) => TupleCons.appliedTo(curr :: acc :: Nil))
+        tpe.asType
+    }
+
   }
 }
