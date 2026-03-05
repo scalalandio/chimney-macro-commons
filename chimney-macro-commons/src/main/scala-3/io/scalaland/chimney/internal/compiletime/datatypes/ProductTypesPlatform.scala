@@ -111,19 +111,32 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
                 .sortBy(_._2)
                 .map(_._1)
 
-            // Make sure that: we only use public definitions, output is sorted by the order of definition
-            def sortedPublicUnique(syms: List[Symbol]): ListSet[Symbol] =
-              ListSet.from(sanitize(syms.filter(isPublic)).sorted)
+            // Stable constructor parameter order from primaryConstructor.paramSymss — reliable across compilation units
+            // because it's encoded in the method signature in TASTy/bytecode, unlike source Position.
+            val ctorParamOrder: Map[String, Int] =
+              paramListsOf(A, sym.primaryConstructor).flatten
+                .map(_.name)
+                .zipWithIndex
+                .toMap
+
+            // Like sortedPublicUnique but uses constructor parameter index instead of source Position.
+            // Used for ConstructorArgVal fields so that position-based (tuple) matching is stable across
+            // compilation units where source positions are unavailable.
+            def sortedPublicUniqueByCtorOrder(syms: List[Symbol]): ListSet[Symbol] =
+              ListSet.from(
+                sanitize(syms.filter(isPublic))
+                  .sortBy(s => ctorParamOrder.getOrElse(s.name.trim, Int.MaxValue))
+              )
 
             // To distinct between vals defined in constructor and in body
             val isArg = sameNamedSymbolIn(paramListsOf(A, sym.primaryConstructor).flatten.filter(isPublic).toSet)
 
-            val caseFields = sortedPublicUnique(sym.caseFields)
+            val caseFields = sortedPublicUniqueByCtorOrder(sym.caseFields)
 
             // As silly as it looks: when I tried to get rid of caseFields and handle everything with fieldMembers
             // the result was really bad. It probably can be done, but it's error prone at best.
             val (argFields, bodyFields) =
-              sortedPublicUnique(sym.fieldMembers.filterNot(sameNamedSymbolIn(caseFields))).partition(isArg)
+              sortedPublicUniqueByCtorOrder(sym.fieldMembers.filterNot(sameNamedSymbolIn(caseFields))).partition(isArg)
 
             (caseFields ++ argFields, bodyFields)
           }
