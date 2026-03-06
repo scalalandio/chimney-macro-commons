@@ -108,10 +108,12 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
                 .zipWithIndex
                 .toMap
 
+            // Sort symbols by the order they appear in the constructor; if they don't appear in the constructor,
+            // sort by the order of definition
             def sortedPublicUniqueByCtorOrder(syms: List[Symbol]): ListSet[Symbol] =
               ListSet.from(
                 sanitize(syms.filter(isPublic))
-                  .sortBy(s => ctorParamOrder.getOrElse(s.name.trim, Int.MaxValue))
+                  .sortBy(s => ctorParamOrder.getOrElse(s.name.trim, Int.MaxValue) -> s)
               )
 
             // To distinct between vals defined in constructor and in body
