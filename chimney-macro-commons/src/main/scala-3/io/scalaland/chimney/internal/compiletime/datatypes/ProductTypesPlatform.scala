@@ -104,13 +104,10 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
             // because it's encoded in the method signature in TASTy/bytecode, unlike source Position.
             val ctorParamOrder: Map[String, Int] =
               paramListsOf(A, sym.primaryConstructor).flatten
-                .map(_.name)
+                .map(_.name.trim)
                 .zipWithIndex
                 .toMap
 
-            // Like sortedPublicUnique but uses constructor parameter index instead of source Position.
-            // Used for ConstructorArgVal fields so that position-based (tuple) matching is stable across
-            // compilation units where source positions are unavailable.
             def sortedPublicUniqueByCtorOrder(syms: List[Symbol]): ListSet[Symbol] =
               ListSet.from(
                 sanitize(syms.filter(isPublic))
