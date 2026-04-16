@@ -120,10 +120,14 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
 
             val caseFields = sortedPublicUnique(sym.caseFields)
 
+            def toFieldMembers(baseClasses: List[Symbol]) = baseClasses.flatMap(_.fieldMembers.filter(isPublic))
+
+            val fieldMembers = toFieldMembers(A.baseClasses)
+
             // As silly as it looks: when I tried to get rid of caseFields and handle everything with fieldMembers
             // the result was really bad. It probably can be done, but it's error prone at best.
             val (argFields, bodyFields) =
-              sortedPublicUnique(sym.fieldMembers.filterNot(sameNamedSymbolIn(caseFields))).partition(isArg)
+              sortedPublicUnique(fieldMembers.filterNot(sameNamedSymbolIn(caseFields))).partition(isArg)
 
             (caseFields ++ argFields, bodyFields)
           }
