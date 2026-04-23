@@ -83,12 +83,34 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
           ListMap.from[String, Existential[Product.Getter[A, *]]] {
             forceTypeSymbolInitialization[A]
             val localDefinitions = Type[A].tpe.decls.to(Set)
-            Type[A].tpe.members.sorted
+
+            // Stable constructor parameter order — consistent with Scala 3 approach of sorting
+            // constructor arguments by their position in the primary constructor parameter list
+            // rather than relying solely on source Position.
+            val ctorParamOrder: Map[String, Int] = {
+              val sym = Type[A].tpe.typeSymbol
+              if (sym.isClass) {
+                val ctor = sym.asClass.primaryConstructor
+                if (ctor != NoSymbol && ctor.isMethod)
+                  ctor.asMethod.paramLists.flatten.map(p => p.name.decodedName.toString).zipWithIndex.toMap
+                else Map.empty[String, Int]
+              } else Map.empty[String, Int]
+            }
+
+            val accessors = Type[A].tpe.members.sorted
               .to(List)
               .filterNot(isGarbageSymbol)
               .collect { case method if method.isMethod => method.asMethod }
               .filter(isAccessor)
-              .map { getter =>
+
+            // Sort constructor arguments first (by ctor param index), then non-ctor members (in their
+            // original order from members.sorted). This makes Scala 2 consistent with the Scala 3
+            // implementation which concatenates argVals ++ bodyVals ++ accessorsAndGetters.
+            val (ctorArgs, nonCtorArgs) =
+              accessors.partition(m => ctorParamOrder.contains(getDecodedName(m)))
+            val sortedAccessors = ctorArgs.sortBy(m => ctorParamOrder(getDecodedName(m))) ++ nonCtorArgs
+
+            sortedAccessors.map { getter =>
                 val name = getDecodedName(getter)
                 val tpe = ExistentialType(fromUntyped(returnTypeOf(Type[A].tpe, getter)))
                 import tpe.Underlying as Tpe
