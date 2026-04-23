@@ -111,28 +111,28 @@ trait ProductTypesPlatform extends ProductTypes { this: DefinitionsPlatform =>
             val sortedAccessors = ctorArgs.sortBy(m => ctorParamOrder(getDecodedName(m))) ++ nonCtorArgs
 
             sortedAccessors.map { getter =>
-                val name = getDecodedName(getter)
-                val tpe = ExistentialType(fromUntyped(returnTypeOf(Type[A].tpe, getter)))
-                import tpe.Underlying as Tpe
-                def conformToIsGetters = !name.take(2).equalsIgnoreCase("is") || Tpe <:< Type[Boolean]
-                name -> tpe.mapK[Product.Getter[A, *]] { implicit Tpe: Type[tpe.Underlying] => _ =>
-                  val termName = getter.asMethod.name.toTermName
-                  Product.Getter[A, Tpe](
-                    sourceType =
-                      if (isArgumentField(getter)) Product.Getter.SourceType.ConstructorArgVal
-                      else if (isJavaGetter(getter) && conformToIsGetters) Product.Getter.SourceType.JavaBeanGetter
-                      else if (isBodyField(getter)) Product.Getter.SourceType.ConstructorBodyVal
-                      else Product.Getter.SourceType.AccessorMethod,
-                    isInherited = !localDefinitions(getter),
-                    get =
-                      // TODO: handle pathological cases like getName[Unused]()()()
-                      if (getter.asMethod.paramLists.isEmpty) (in: Expr[A]) => c.Expr[Tpe](q"$in.$termName")
-                      else
-                        (in: Expr[A]) =>
-                          c.Expr[Tpe](q"$in.$termName(...${getter.paramLists.map(_.map(_.asInstanceOf[Tree]))})")
-                  )
-                }
+              val name = getDecodedName(getter)
+              val tpe = ExistentialType(fromUntyped(returnTypeOf(Type[A].tpe, getter)))
+              import tpe.Underlying as Tpe
+              def conformToIsGetters = !name.take(2).equalsIgnoreCase("is") || Tpe <:< Type[Boolean]
+              name -> tpe.mapK[Product.Getter[A, *]] { implicit Tpe: Type[tpe.Underlying] => _ =>
+                val termName = getter.asMethod.name.toTermName
+                Product.Getter[A, Tpe](
+                  sourceType =
+                    if (isArgumentField(getter)) Product.Getter.SourceType.ConstructorArgVal
+                    else if (isJavaGetter(getter) && conformToIsGetters) Product.Getter.SourceType.JavaBeanGetter
+                    else if (isBodyField(getter)) Product.Getter.SourceType.ConstructorBodyVal
+                    else Product.Getter.SourceType.AccessorMethod,
+                  isInherited = !localDefinitions(getter),
+                  get =
+                    // TODO: handle pathological cases like getName[Unused]()()()
+                    if (getter.asMethod.paramLists.isEmpty) (in: Expr[A]) => c.Expr[Tpe](q"$in.$termName")
+                    else
+                      (in: Expr[A]) =>
+                        c.Expr[Tpe](q"$in.$termName(...${getter.paramLists.map(_.map(_.asInstanceOf[Tree]))})")
+                )
               }
+            }
           }
         )
       )
